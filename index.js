@@ -27,10 +27,15 @@ function resetarFluxo() {
 }
 
 /* =========================
-   ROTA TESTE
+   ROTA INDEX
 ========================= */
 app.get("/", (req, res) => {
-  res.send("🤖 VendeIA estilo ChatGPT rodando");
+  res.json({
+    app: "VendeIA",
+    status: "online",
+    modelo: "GPT-5.2",
+    estilo: "ChatGPT-like"
+  });
 });
 
 /* =========================
@@ -187,5 +192,5 @@ function gerarRespostaHumana() {
    START
 ========================= */
 app.listen(PORT, () => {
-  console.log(`🚀 VendeIA rodando na porta ${PORT}`);
+  console.log(`🚀 VendeIA rodando na porta ${PORT} • Modelo GPT-5.2`);
 });
