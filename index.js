@@ -1,3 +1,17 @@
+const express = require("express");
+const cors = require("cors");
+const axios = require("axios");
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
+app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.send("API está rodando");
+});
+
 app.get("/buscar", async (req, res) => {
   const pergunta = req.query.q;
 
@@ -6,7 +20,6 @@ app.get("/buscar", async (req, res) => {
   }
 
   try {
-    // 1️⃣ Busca na Wikipedia (OBRIGATÓRIO origin: "*")
     const searchResponse = await axios.get(
       "https://pt.wikipedia.org/w/api.php",
       {
@@ -15,7 +28,7 @@ app.get("/buscar", async (req, res) => {
           list: "search",
           srsearch: pergunta,
           format: "json",
-          origin: "*" // 👈 ISSO RESOLVE O ERRO
+          origin: "*"
         }
       }
     );
@@ -29,10 +42,8 @@ app.get("/buscar", async (req, res) => {
       });
     }
 
-    // 2️⃣ Título correto
     const titulo = resultados[0].title;
 
-    // 3️⃣ Resumo do artigo
     const summaryResponse = await axios.get(
       `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(titulo)}`
     );
@@ -44,10 +55,13 @@ app.get("/buscar", async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error.message);
     return res.json({
       pergunta,
       resposta: "Erro ao buscar informações"
     });
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
