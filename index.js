@@ -1,6 +1,5 @@
- const express = require("express");
+const express = require("express");
 const cors = require("cors");
-const axios = require("axios");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,162 +9,129 @@ const PORT = process.env.PORT || 3000;
 ========================= */
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 /* =========================
-   MEMÓRIA LONGA (MVP)
+   MEMÓRIA SIMPLES (GLOBAL)
 ========================= */
-let memoria = {
-  ultimaMensagem: null,
-  ultimaFrase: null,
-  historico: []
-};
+let ultimaFrase = null;
 
 /* =========================
    ROTA TESTE
 ========================= */
 app.get("/", (req, res) => {
-  res.send("🚀 Backend VendeIA rodando perfeitamente");
+  res.send("🚀 Backend VendeIA rodando");
 });
-
-/* =========================
-   FUNÇÕES AUX
-========================= */
-function respostaHumana(texto) {
-  const emojis = ["🤖", "✨", "🚀", "😉", "🔥"];
-  return `${emojis[Math.floor(Math.random() * emojis.length)]} ${texto}`;
-}
-
-function salvarMemoria(texto) {
-  memoria.ultimaMensagem = texto;
-  memoria.historico.push(texto);
-  if (memoria.historico.length > 20) memoria.historico.shift();
-}
 
 /* =========================
    ROTA CHAT
 ========================= */
 app.post("/chat", async (req, res) => {
   try {
-    const texto = req.body?.mensagem || req.body?.texto || "";
-    const textoLower = texto.toLowerCase();
+    const mensagem = req.body?.mensagem?.trim();
 
-    if (!texto.trim()) {
+    if (!mensagem) {
       return res.json({
         tipo: "texto",
-        resposta: respostaHumana("Pode mandar sua pergunta 😊")
+        resposta: "🤔 Não entendi. Pode escrever de novo?"
       });
     }
 
-    salvarMemoria(texto);
+    const texto = mensagem.toLowerCase();
 
     /* =========================
-       CRIAR FRASE / TEXTO
+       CONFIRMAÇÃO DE IMAGEM
     ========================= */
-    if (
-      textoLower.includes("criar") ||
-      textoLower.includes("frase") ||
-      textoLower.includes("texto")
-    ) {
-      memoria.ultimaFrase =
-        "O sucesso não é sorte, é consistência aplicada todos os dias.";
-
-      return res.json({
-        tipo: "texto",
-        resposta: respostaHumana(
-          `Criei isso pra você:\n\n"${memoria.ultimaFrase}"\n\nQuer transformar em imagem, anúncio ou legenda?`
-        )
-      });
-    }
-
-    /* =========================
-       GERAR IMAGEM (IA-READY)
-    ========================= */
-    if (
-      textoLower.includes("imagem") ||
-      textoLower.includes("imagens") ||
-      textoLower.includes("gerar imagem")
-    ) {
-      const prompt =
-        memoria.ultimaFrase || texto.replace(/imagem|imagens/gi, "");
+    if (mensagem === "__CONFIRMAR_IMAGEM__") {
+      if (!ultimaFrase) {
+        return res.json({
+          tipo: "texto",
+          resposta: "⚠️ Primeiro crie um texto antes de gerar a imagem."
+        });
+      }
 
       return res.json({
         tipo: "imagem",
-        prompt,
-        imagem: `https://image.pollinations.ai/prompt/${encodeURIComponent(
-          prompt
-        )}`
+        imagem: gerarImagem(ultimaFrase)
       });
     }
 
     /* =========================
-       QUEM É / O QUE É / EXPLICAR
+       PEDIDO DIRETO DE IMAGEM
+    ========================= */
+    if (texto.includes("imagem") && ultimaFrase) {
+      return res.json({
+        tipo: "imagem",
+        imagem: gerarImagem(ultimaFrase)
+      });
+    }
+
+    /* =========================
+       CRIAÇÃO DE TEXTO / FRASE
     ========================= */
     if (
-      textoLower.startsWith("quem é") ||
-      textoLower.startsWith("o que é") ||
-      textoLower.startsWith("explique") ||
-      textoLower.startsWith("quem foi")
+      texto.includes("frase") ||
+      texto.includes("texto") ||
+      texto.includes("mensagem") ||
+      texto.includes("motivação")
     ) {
-      const pergunta = texto
-        .replace(/quem é|o que é|explique|quem foi/gi, "")
-        .trim();
-
-      try {
-        const response = await axios.get(
-          "https://pt.wikipedia.org/api/rest_v1/page/summary/" +
-            encodeURIComponent(pergunta)
-        );
-
-        if (response.data?.extract) {
-          return res.json({
-            tipo: "texto",
-            resposta: respostaHumana(response.data.extract)
-          });
-        }
-      } catch (e) {}
+      ultimaFrase = gerarFrase();
 
       return res.json({
         tipo: "texto",
-        resposta: respostaHumana(
-          `Não achei uma resposta exata, mas posso explicar de outro jeito se quiser 😉`
-        )
+        resposta:
+          `🔥 Criei isso pra você:\n\n` +
+          `"${ultimaFrase}"\n\n` +
+          `Quer transformar em imagem, anúncio ou legenda?`
       });
     }
 
     /* =========================
-       MEMÓRIA / CONTEXTO
-    ========================= */
-    if (textoLower.includes("lembra") || textoLower.includes("memória")) {
-      return res.json({
-        tipo: "texto",
-        resposta: respostaHumana(
-          `Eu lembro das últimas ${memoria.historico.length} mensagens da conversa 😄`
-        )
-      });
-    }
-
-    /* =========================
-       FALLBACK INTELIGENTE
+       CONVERSA PADRÃO
     ========================= */
     return res.json({
       tipo: "texto",
-      resposta: respostaHumana(
-        `Entendi o que você disse. Quer que eu explique, crie algo, gere uma imagem ou pesquise isso?`
-      )
+      resposta:
+        "🤖 Posso criar textos, frases motivacionais ou gerar imagens.\n\n" +
+        "Exemplos:\n" +
+        "• Crie uma frase motivacional\n" +
+        "• Quero um texto de vendas\n" +
+        "• Transformar em imagem"
     });
 
-  } catch (error) {
+  } catch (err) {
+    console.error(err);
     return res.json({
       tipo: "texto",
-      resposta: "⚠️ Opa, tive um pequeno erro interno, mas já estou bem 😉"
+      resposta: "❌ Algo deu errado. Tenta de novo."
     });
   }
 });
 
 /* =========================
-   START
+   FUNÇÕES AUXILIARES
+========================= */
+function gerarFrase() {
+  const frases = [
+    "O sucesso não é sorte, é consistência aplicada todos os dias.",
+    "Quem começa pequeno hoje constrói algo grande amanhã.",
+    "Disciplina vence motivação quando a vontade falha.",
+    "Resultados vêm de quem age mesmo com medo.",
+    "A diferença entre sonhar e vencer é executar."
+  ];
+
+  return frases[Math.floor(Math.random() * frases.length)];
+}
+
+function gerarImagem(texto) {
+  // placeholder visual bonito (troca depois por IA real)
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(
+    "arte motivacional com fundo moderno e a frase: " + texto
+  )}`;
+}
+
+/* =========================
+   START SERVER
 ========================= */
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 VendeIA rodando na porta ${PORT}`);
 });
