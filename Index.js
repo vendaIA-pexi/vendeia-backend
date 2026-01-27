@@ -74,7 +74,7 @@ app.post("/chat", (req, res) => {
         memoria.aguardandoTextoImagem = true;
         return responderTexto(
           res,
-          "Beleza 😄 Qual texto você quer transformar em imagem?"
+          "Beleza 😄 Qual texto você quer usar na arte?"
         );
       }
 
@@ -95,7 +95,7 @@ app.post("/chat", (req, res) => {
 
       return responderTexto(
         res,
-        `Perfeito 👌 Posso transformar isso em imagem:\n\n"${mensagem}"\n\nQuer que eu gere agora?`
+        `Perfeito 👌 Vou criar uma arte usando este texto:\n\n"${mensagem}"\n\nQuer que eu gere agora?`
       );
     }
 
@@ -103,20 +103,12 @@ app.post("/chat", (req, res) => {
        PEDIDO DE IMAGEM
     ========================= */
     if (/\b(imagem|gerar imagem|criar imagem)\b/.test(texto)) {
-      if (!memoria.ultimaFrase) {
-        resetarFluxo();
-        memoria.aguardandoTextoImagem = true;
-        return responderTexto(
-          res,
-          "Show 😄 Qual texto você quer transformar em imagem?"
-        );
-      }
-
-      const frase = memoria.ultimaFrase;
-      memoria.ultimaFrase = null;
       resetarFluxo();
-
-      return responderImagem(res, frase);
+      memoria.aguardandoTextoImagem = true;
+      return responderTexto(
+        res,
+        "Show 😄 Qual texto você quer usar na arte?"
+      );
     }
 
     /* =========================
@@ -129,7 +121,7 @@ app.post("/chat", (req, res) => {
 
       return responderTexto(
         res,
-        `🔥 Criei isso pra você:\n\n"${frase}"\n\nQuer transformar em imagem, anúncio ou legenda?`
+        `🔥 Criei isso pra você:\n\n"${frase}"\n\nQuer transformar em arte, anúncio ou legenda?`
       );
     }
 
@@ -160,8 +152,9 @@ function responderTexto(res, texto) {
 function responderImagem(res, texto) {
   return res.json({
     tipo: "imagem",
+    texto, // 👈 texto limpo para usar no front se quiser
     imagem: `https://image.pollinations.ai/prompt/${encodeURIComponent(
-      "arte moderna, fundo bonito, tipografia forte, frase: " + texto
+      "arte moderna, fundo bonito, abstrato, iluminação profissional, sem texto, alta qualidade"
     )}`
   });
 }
