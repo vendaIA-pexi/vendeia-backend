@@ -6,7 +6,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* =========================
-   MIDDLEWARES (ESSENCIAL)
+   MIDDLEWARES
 ========================= */
 app.use(cors());
 app.use(express.json());
@@ -26,14 +26,16 @@ app.get("/", (req, res) => {
    ROTA PRINCIPAL
 ========================= */
 app.post("/chat", async (req, res) => {
-  // 🔥 LOG PRA DEBUG (Render)
   console.log("BODY RECEBIDO:", req.body);
 
-  // ✅ ACEITA TEXTO DOS DOIS JEITOS
+  // ✅ aceita mensagem ou texto
   const texto = req.body?.mensagem || req.body?.texto;
 
   if (!texto) {
-    return res.json({ resposta: "Mensagem vazia" });
+    return res.json({
+      tipo: "texto",
+      resposta: "Mensagem vazia"
+    });
   }
 
   const textoLower = texto.toLowerCase();
@@ -68,12 +70,13 @@ app.post("/chat", async (req, res) => {
   }
 
   /* =========================
-     3️⃣ BUSCA WIKIPEDIA
+     3️⃣ BUSCA WIKIPEDIA (CORRIGIDA)
   ========================= */
   if (textoLower.startsWith("quem é")) {
     const pergunta = texto.replace(/quem é/i, "").trim();
 
     try {
+      // 🔍 Busca título
       const searchResponse = await axios.get(
         "https://pt.wikipedia.org/w/api.php",
         {
@@ -98,18 +101,42 @@ app.post("/chat", async (req, res) => {
 
       const titulo = resultados[0].title;
 
-      const summaryResponse = await axios.get(
-        `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
-          titulo
-        )}`
+      // 📄 Busca resumo (API CERTA)
+      const pageResponse = await axios.get(
+        "https://pt.wikipedia.org/w/api.php",
+        {
+          params: {
+            action: "query",
+            prop: "extracts",
+            exintro: true,
+            explaintext: true,
+            titles: titulo,
+            format: "json",
+            origin: "*"
+          },
+          headers: {
+            "User-Agent": "VendeIA/1.0 (https://vendeia.app)"
+          }
+        }
       );
+
+      const pages = pageResponse.data.query.pages;
+      const page = Object.values(pages)[0];
+
+      if (!page || !page.extract) {
+        return res.json({
+          tipo: "texto",
+          resposta: "Não encontrei um resumo confiável."
+        });
+      }
 
       return res.json({
         tipo: "texto",
-        resposta: summaryResponse.data.extract
+        resposta: page.extract
       });
+
     } catch (error) {
-      console.error(error.message);
+      console.error("ERRO WIKI:", error.message);
       return res.json({
         tipo: "texto",
         resposta: "Erro ao buscar informações."
