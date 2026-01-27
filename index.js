@@ -8,10 +8,6 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("API está rodando");
-});
-
 app.get("/buscar", async (req, res) => {
   const pergunta = req.query.q;
 
@@ -20,6 +16,11 @@ app.get("/buscar", async (req, res) => {
   }
 
   try {
+    const headers = {
+      "User-Agent": "MinhaAPI/1.0 (contato@email.com)"
+    };
+
+    // 1) Buscar título
     const searchResponse = await axios.get(
       "https://pt.wikipedia.org/w/api.php",
       {
@@ -29,7 +30,8 @@ app.get("/buscar", async (req, res) => {
           srsearch: pergunta,
           format: "json",
           origin: "*"
-        }
+        },
+        headers
       }
     );
 
@@ -44,17 +46,20 @@ app.get("/buscar", async (req, res) => {
 
     const titulo = resultados[0].title;
 
+    // 2) Buscar resumo
     const summaryResponse = await axios.get(
-      `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(titulo)}`
+      `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(titulo)}`,
+      { headers }
     );
 
     return res.json({
       pergunta,
       titulo,
-      resposta: summaryResponse.data.extract || "Sem resumo disponível"
+      resposta: summaryResponse.data.extract
     });
 
   } catch (error) {
+    console.error(error.response?.status, error.message);
     return res.json({
       pergunta,
       resposta: "Erro ao buscar informações"
