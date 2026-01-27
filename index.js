@@ -4,37 +4,34 @@ const axios = require("axios");
 
 const app = express();
 
-// 🔥 MIDDLEWARES OBRIGATÓRIOS
+// middlewares
 app.use(cors());
 app.use(express.json());
 
-// ✅ ROTA RAIZ (Render testa isso)
+// rota raiz
 app.get("/", (req, res) => {
   res.send("Backend VendeIA rodando 🚀");
 });
 
-// ==============================
-// 🤖 ROTA DO CHAT (HTML usa essa)
-// ==============================
+// rota do chat
 app.post("/api/chat", async (req, res) => {
   try {
     const { texto } = req.body;
 
     if (!texto) {
-      return res.status(400).json({
+      return res.json({
         tipo: "texto",
-        resposta: "Texto não recebido"
+        resposta: "Nenhum texto recebido"
       });
     }
 
-    const textoLower = texto.toLowerCase();
+    const lower = texto.toLowerCase();
 
-    // 🖼️ PEDIDO DE IMAGEM
+    // imagem fake (teste)
     if (
-      textoLower.includes("cria imagem") ||
-      textoLower.includes("criar imagem") ||
-      textoLower.includes("gerar imagem") ||
-      textoLower.includes("imagem de")
+      lower.includes("criar imagem") ||
+      lower.includes("cria imagem") ||
+      lower.includes("imagem de")
     ) {
       return res.json({
         tipo: "imagem",
@@ -42,13 +39,13 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    // 🔎 SE FOR PERGUNTA → WIKIPEDIA
+    // wikipedia
     if (
-      textoLower.startsWith("quem é") ||
-      textoLower.startsWith("o que é") ||
-      textoLower.startsWith("quem foi")
+      lower.startsWith("quem é") ||
+      lower.startsWith("quem foi") ||
+      lower.startsWith("o que é")
     ) {
-      const searchResponse = await axios.get(
+      const busca = await axios.get(
         "https://pt.wikipedia.org/w/api.php",
         {
           params: {
@@ -61,64 +58,44 @@ app.post("/api/chat", async (req, res) => {
         }
       );
 
-      const resultados = searchResponse.data?.query?.search;
+      const resultados = busca.data?.query?.search;
 
       if (!resultados || resultados.length === 0) {
         return res.json({
           tipo: "texto",
-          resposta: "Não encontrei informações sobre isso."
+          resposta: "Não encontrei informações."
         });
       }
 
       const titulo = resultados[0].title;
 
-      const summaryResponse = await axios.get(
-        `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
-          titulo
-        )}`
+      const resumo = await axios.get(
+        `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(titulo)}`
       );
 
       return res.json({
         tipo: "texto",
-        resposta: summaryResponse.data.extract
+        resposta: resumo.data.extract
       });
     }
 
-    // ✍️ TEXTO PADRÃO (modo vendedor)
+    // resposta padrão
     return res.json({
       tipo: "texto",
-      resposta: `🔥 Texto pronto para vendas:\n\n${texto}\n\n💡 Quer transformar isso em anúncio ou imagem?`
+      resposta: "🔥 Posso te ajudar a criar textos ou imagens para vender!"
     });
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
       tipo: "texto",
       resposta: "Erro interno no servidor"
     });
   }
 });
 
-// ==============================
-// 🚀 LISTEN (SÓ ESSE!)
-// ==============================
+// listen (APENAS UM)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Servidor rodando na porta", PORT);
-});
-  } catch (error) {
-    console.error(error.response?.status, error.message);
-    return res.json({
-      pergunta,
-      resposta: "Erro ao buscar informações"
-    });
-  }
-});
-
-// 🚀 OBRIGATÓRIO NO RENDER
-app.listen(PORT, () => {
-  console.log("Servidor rodando na porta", PORT);
-});
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
 });
