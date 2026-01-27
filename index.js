@@ -22,7 +22,7 @@ app.get("/", (req, res) => {
    ROTA PRINCIPAL
 ========================= */
 app.post("/chat", async (req, res) => {
-  const texto = req.body?.mensagem;
+  const texto = req.body?.texto; // 🔴 AJUSTE IMPORTANTE
 
   if (!texto) {
     return res.json({ resposta: "Mensagem vazia" });
@@ -33,7 +33,10 @@ app.post("/chat", async (req, res) => {
   /* =========================
      1️⃣ CRIAR FRASE
   ========================= */
-  if (textoLower.includes("criar uma frase")) {
+  if (
+    textoLower.includes("criar frase") ||
+    textoLower.includes("criar uma frase")
+  ) {
     ultimaFrase = "O sucesso nasce da coragem de tentar todos os dias.";
 
     return res.json({
@@ -45,11 +48,14 @@ app.post("/chat", async (req, res) => {
   /* =========================
      2️⃣ GERAR IMAGEM DA FRASE
   ========================= */
-  if (textoLower.includes("imagem") && ultimaFrase) {
+  if (
+    (textoLower.includes("imagem") ||
+      textoLower.includes("criar imagem")) &&
+    ultimaFrase
+  ) {
     return res.json({
       tipo: "imagem",
-      prompt: ultimaFrase,
-      imagem: "https://picsum.photos/512"
+      imagem: "https://picsum.photos/600/400"
     });
   }
 
@@ -57,7 +63,7 @@ app.post("/chat", async (req, res) => {
      3️⃣ BUSCA WIKIPEDIA
   ========================= */
   if (textoLower.startsWith("quem é")) {
-    const pergunta = texto.replace("quem é", "").trim();
+    const pergunta = texto.replace(/quem é/i, "").trim();
 
     try {
       const searchResponse = await axios.get(
