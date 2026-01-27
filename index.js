@@ -8,6 +8,12 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// ✅ ROTA RAIZ (ESSENCIAL PRO RENDER / APP)
+app.get("/", (req, res) => {
+  res.send("Backend VendeIA rodando 🚀");
+});
+
+// 🔎 ROTA DE BUSCA (Wikipedia)
 app.get("/buscar", async (req, res) => {
   const pergunta = req.query.q;
 
@@ -20,7 +26,7 @@ app.get("/buscar", async (req, res) => {
       "User-Agent": "MinhaAPI/1.0 (contato@email.com)"
     };
 
-    // 1) Buscar título
+    // 1️⃣ Buscar título
     const searchResponse = await axios.get(
       "https://pt.wikipedia.org/w/api.php",
       {
@@ -46,7 +52,7 @@ app.get("/buscar", async (req, res) => {
 
     const titulo = resultados[0].title;
 
-    // 2) Buscar resumo
+    // 2️⃣ Buscar resumo
     const summaryResponse = await axios.get(
       `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(titulo)}`,
       { headers }
@@ -67,6 +73,10 @@ app.get("/buscar", async (req, res) => {
   }
 });
 
+// 🚀 OBRIGATÓRIO NO RENDER
+app.listen(PORT, () => {
+  console.log("Servidor rodando na porta", PORT);
+});
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
