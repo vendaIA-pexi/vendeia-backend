@@ -1,52 +1,58 @@
 const express = require("express");
 const axios = require("axios");
+const cheerio = require("cheerio");
+const cors = require("cors");
 
 const app = express();
+app.use(cors());
+
 const PORT = process.env.PORT || 3000;
 
+// rota principal
 app.get("/", (req, res) => {
   res.send("Backend rodando 🚀");
 });
 
+// rota de busca
 app.get("/buscar", async (req, res) => {
+  const pergunta = req.query.q;
+
+  if (!pergunta) {
+    return res.json({ resposta: "Pergunta não informada" });
+  }
+
   try {
-    const pergunta = req.query.q;
+    const url = `https://pt.wikipedia.org/wiki/${encodeURIComponent(pergunta)}`;
 
-    if (!pergunta) {
-      return res.json({ erro: "Use ?q=pergunta" });
-    }
+    const response = await axios.get(url);
+    const $ = cheerio.load(response.data);
 
-    const url = "https://api.duckduckgo.com/";
+    let texto = "";
 
-    const { data } = await axios.get(url, {
-      params: {
-        q: pergunta,
-        format: "json",
-        no_html: 1,
-        skip_disambig: 1
+    $("p").each((i, el) => {
+      const p = $(el).text();
+      if (p.length > 50 && texto === "") {
+        texto = p;
       }
     });
 
-    let resposta =
-      data.AbstractText ||
-      data.Answer ||
-      (data.RelatedTopics &&
-        data.RelatedTopics[0] &&
-        data.RelatedTopics[0].Text) ||
-      "Nenhuma resposta encontrada";
+    if (!texto) {
+      texto = "Nenhuma resposta encontrada";
+    }
 
     res.json({
       pergunta,
-      resposta
+      resposta: texto
     });
-  } catch (err) {
+
+  } catch (error) {
     res.json({
-      erro: "Erro na busca",
-      detalhe: err.message
+      pergunta,
+      resposta: "Não foi possível obter resposta"
     });
   }
 });
 
 app.listen(PORT, () => {
-  console.log("Servidor rodando na porta " + PORT);
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
