@@ -4,22 +4,22 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* =========================
-   MIDDLEWARES
-========================= */
 app.use(cors());
 app.use(express.json());
 
 /* =========================
-   MEMÓRIA SIMPLES (GLOBAL)
+   MEMÓRIA SIMPLES (CHATGPT-LIKE)
 ========================= */
-let ultimaFrase = null;
+let memoria = {
+  ultimaFrase: null,
+  ultimoTopico: null
+};
 
 /* =========================
    ROTA TESTE
 ========================= */
 app.get("/", (req, res) => {
-  res.send("🚀 Backend VendeIA rodando");
+  res.send("🤖 VendeIA estilo ChatGPT rodando");
 });
 
 /* =========================
@@ -30,10 +30,7 @@ app.post("/chat", async (req, res) => {
     const mensagem = req.body?.mensagem?.trim();
 
     if (!mensagem) {
-      return res.json({
-        tipo: "texto",
-        resposta: "🤔 Não entendi. Pode escrever de novo?"
-      });
+      return responderTexto(res, "Pode escrever o que você quer 🙂");
     }
 
     const texto = mensagem.toLowerCase();
@@ -42,31 +39,32 @@ app.post("/chat", async (req, res) => {
        CONFIRMAÇÃO DE IMAGEM
     ========================= */
     if (mensagem === "__CONFIRMAR_IMAGEM__") {
-      if (!ultimaFrase) {
-        return res.json({
-          tipo: "texto",
-          resposta: "⚠️ Primeiro crie um texto antes de gerar a imagem."
-        });
+      if (!memoria.ultimaFrase) {
+        return responderTexto(
+          res,
+          "Antes preciso de um texto para transformar em imagem 😉"
+        );
       }
 
-      return res.json({
-        tipo: "imagem",
-        imagem: gerarImagem(ultimaFrase)
-      });
+      return responderImagem(res, memoria.ultimaFrase);
     }
 
     /* =========================
        PEDIDO DIRETO DE IMAGEM
     ========================= */
-    if (texto.includes("imagem") && ultimaFrase) {
-      return res.json({
-        tipo: "imagem",
-        imagem: gerarImagem(ultimaFrase)
-      });
+    if (texto.includes("imagem")) {
+      if (!memoria.ultimaFrase) {
+        return responderTexto(
+          res,
+          "Certo! Qual texto você quer transformar em imagem?"
+        );
+      }
+
+      return responderImagem(res, memoria.ultimaFrase);
     }
 
     /* =========================
-       CRIAÇÃO DE TEXTO / FRASE
+       CRIAÇÃO DE FRASE / TEXTO
     ========================= */
     if (
       texto.includes("frase") ||
@@ -74,63 +72,78 @@ app.post("/chat", async (req, res) => {
       texto.includes("mensagem") ||
       texto.includes("motivação")
     ) {
-      ultimaFrase = gerarFrase();
+      const frase = gerarFrase();
+      memoria.ultimaFrase = frase;
+      memoria.ultimoTopico = "texto";
 
-      return res.json({
-        tipo: "texto",
-        resposta:
-          `🔥 Criei isso pra você:\n\n` +
-          `"${ultimaFrase}"\n\n` +
-          `Quer transformar em imagem, anúncio ou legenda?`
-      });
+      return responderTexto(
+        res,
+        `🔥 Criei isso pra você:\n\n"${frase}"\n\nQuer transformar em imagem, anúncio ou legenda?`
+      );
     }
 
     /* =========================
-       CONVERSA PADRÃO
+       RESPOSTA CONVERSACIONAL (CHATGPT)
     ========================= */
-    return res.json({
-      tipo: "texto",
-      resposta:
-        "🤖 Posso criar textos, frases motivacionais ou gerar imagens.\n\n" +
-        "Exemplos:\n" +
-        "• Crie uma frase motivacional\n" +
-        "• Quero um texto de vendas\n" +
-        "• Transformar em imagem"
-    });
+    memoria.ultimoTopico = "conversa";
 
-  } catch (err) {
-    console.error(err);
-    return res.json({
-      tipo: "texto",
-      resposta: "❌ Algo deu errado. Tenta de novo."
-    });
+    return responderTexto(
+      res,
+      gerarRespostaHumana(mensagem)
+    );
+
+  } catch (e) {
+    console.error(e);
+    return responderTexto(res, "❌ Algo deu errado, tenta de novo.");
   }
 });
 
 /* =========================
-   FUNÇÕES AUXILIARES
+   FUNÇÕES
 ========================= */
+
+function responderTexto(res, texto) {
+  return res.json({
+    tipo: "texto",
+    resposta: texto
+  });
+}
+
+function responderImagem(res, texto) {
+  return res.json({
+    tipo: "imagem",
+    imagem: `https://image.pollinations.ai/prompt/${encodeURIComponent(
+      "arte moderna, fundo bonito, tipografia forte, frase: " + texto
+    )}`
+  });
+}
+
 function gerarFrase() {
   const frases = [
     "O sucesso não é sorte, é consistência aplicada todos os dias.",
-    "Quem começa pequeno hoje constrói algo grande amanhã.",
-    "Disciplina vence motivação quando a vontade falha.",
-    "Resultados vêm de quem age mesmo com medo.",
-    "A diferença entre sonhar e vencer é executar."
+    "Quem age enquanto os outros duvidam chega mais longe.",
+    "Disciplina é fazer mesmo quando a motivação não aparece.",
+    "Resultados vêm de quem executa, não de quem só planeja.",
+    "Pequenas ações diárias criam grandes resultados."
   ];
 
   return frases[Math.floor(Math.random() * frases.length)];
 }
 
-function gerarImagem(texto) {
-  // placeholder visual bonito (troca depois por IA real)
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(
-    "arte motivacional com fundo moderno e a frase: " + texto
-  )}`;
+function gerarRespostaHumana(pergunta) {
+  const respostas = [
+    "Boa pergunta 👀 Quer que eu explique de forma simples ou direta?",
+    "Posso te ajudar com isso sim. Quer um exemplo prático?",
+    "Isso depende do objetivo. Me conta um pouco mais.",
+    "Interessante isso 🤔 Você quer algo mais técnico ou mais simples?",
+    "Se quiser, posso transformar isso em texto, imagem ou explicação."
+  ];
+
+  return respostas[Math.floor(Math.random() * respostas.length)];
 }
 
 /* =========================
-   START SERVER
+   START
 ========================= */
 app.listen(PORT, () => {
   console.log(`🚀 VendeIA rodando na porta ${PORT}`);
