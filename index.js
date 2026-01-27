@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const axios = require("axios");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -7,58 +8,109 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// 🧠 MEMÓRIA SIMPLES
-let ultimaMensagem = "";
+// 🧠 memória simples (MVP)
+let ultimaFrase = null;
 
+/* =========================
+   ROTA TESTE
+========================= */
 app.get("/", (req, res) => {
   res.send("Backend VendeIA rodando 🚀");
 });
 
-app.post("/api/chat", async (req, res) => {
-  try {
-    const { texto } = req.body;
+/* =========================
+   ROTA PRINCIPAL
+========================= */
+app.post("/chat", async (req, res) => {
+  const texto = req.body?.mensagem;
 
-    if (!texto) {
-      return res.json({
-        tipo: "texto",
-        resposta: "Texto não recebido"
-      });
-    }
+  if (!texto) {
+    return res.json({ resposta: "Mensagem vazia" });
+  }
 
-    const textoLower = texto.toLowerCase();
+  const textoLower = texto.toLowerCase();
 
-    // 🖼️ PEDIDO DE IMAGEM COM CONTEXTO
-    if (
-      textoLower.includes("cria imagem") ||
-      textoLower.includes("criar imagem") ||
-      textoLower.includes("gera imagem") ||
-      textoLower.includes("transforma em imagem")
-    ) {
-      return res.json({
-        tipo: "imagem",
-        prompt: ultimaMensagem || texto,
-        imagem: "https://picsum.photos/512"
-      });
-    }
+  /* =========================
+     1️⃣ CRIAR FRASE
+  ========================= */
+  if (textoLower.includes("criar uma frase")) {
+    ultimaFrase = "O sucesso nasce da coragem de tentar todos os dias.";
 
-    // 💾 SALVA NA MEMÓRIA
-    ultimaMensagem = texto;
-
-    // ✍️ RESPOSTA NORMAL
     return res.json({
       tipo: "texto",
-      resposta: `🔥 Entendi isso:\n\n"${texto}"\n\n👉 Quer que eu transforme em anúncio, imagem ou descrição?`
-    });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      tipo: "texto",
-      resposta: "Erro interno no servidor"
+      resposta: `🔥 Frase criada:\n\n"${ultimaFrase}"\n\n👉 Quer transformar em imagem, anúncio ou descrição?`
     });
   }
+
+  /* =========================
+     2️⃣ GERAR IMAGEM DA FRASE
+  ========================= */
+  if (textoLower.includes("imagem") && ultimaFrase) {
+    return res.json({
+      tipo: "imagem",
+      prompt: ultimaFrase,
+      imagem: "https://picsum.photos/512"
+    });
+  }
+
+  /* =========================
+     3️⃣ BUSCA WIKIPEDIA
+  ========================= */
+  if (textoLower.startsWith("quem é")) {
+    const pergunta = texto.replace("quem é", "").trim();
+
+    try {
+      const searchResponse = await axios.get(
+        "https://pt.wikipedia.org/w/api.php",
+        {
+          params: {
+            action: "query",
+            list: "search",
+            srsearch: pergunta,
+            format: "json",
+            origin: "*"
+          }
+        }
+      );
+
+      const resultados = searchResponse.data?.query?.search;
+
+      if (!resultados || resultados.length === 0) {
+        return res.json({
+          resposta: "Não encontrei informações sobre isso."
+        });
+      }
+
+      const titulo = resultados[0].title;
+
+      const summaryResponse = await axios.get(
+        `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
+          titulo
+        )}`
+      );
+
+      return res.json({
+        tipo: "texto",
+        resposta: summaryResponse.data.extract
+      });
+    } catch (error) {
+      return res.json({
+        resposta: "Erro ao buscar informações."
+      });
+    }
+  }
+
+  /* =========================
+     FALLBACK
+  ========================= */
+  return res.json({
+    resposta: "🤖 Entendi, mas ainda não sei o que fazer com isso."
+  });
 });
 
+/* =========================
+   START SERVER
+========================= */
 app.listen(PORT, () => {
-  console.log("Servidor rodando na porta", PORT);
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
