@@ -1,37 +1,61 @@
 const express = require("express");
 const cors = require("cors");
+const axios = require("axios");
+const cheerio = require("cheerio");
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
-// ROTA DE TESTE
 app.get("/", (req, res) => {
-  res.send("Backend VendeIA rodando 🚀");
+  res.send("Backend online 🚀");
 });
 
-// ROTA USADA PELO FRONTEND
-app.post("/api/chat", (req, res) => {
-  const { texto } = req.body;
+app.get("/buscar", async (req, res) => {
+  const pergunta = req.query.q;
 
-  if (!texto) {
-    return res.status(400).json({
-      resposta: "Texto não recebido"
-    });
+  if (!pergunta) {
+    return res.json({ erro: "Pergunta não informada" });
   }
 
-  res.json({
-    resposta: `🔥 Texto pronto para cosméticos:
+  try {
+    const url = `https://www.google.com/search?q=${encodeURIComponent(pergunta)}&hl=pt-BR`;
 
-Realce sua beleza com produtos de alta qualidade,
-fórmulas modernas e resultados comprovados.
-Garanta o seu agora e sinta a diferença! 💄✨`
-  });
+    const response = await axios.get(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
+      },
+    });
+
+    const $ = cheerio.load(response.data);
+
+    let resposta = "";
+
+    // tenta pegar featured snippet
+    $("div.BNeawe").each((i, el) => {
+      if ($(el).text().length > 50 && resposta === "") {
+        resposta = $(el).text();
+      }
+    });
+
+    if (!resposta) {
+      resposta = "Não encontrei uma resposta direta.";
+    }
+
+    res.json({
+      pergunta,
+      resposta,
+    });
+  } catch (erro) {
+    res.json({
+      erro: "Erro ao buscar no Google",
+      detalhes: erro.message,
+    });
+  }
 });
 
-// PORTA OBRIGATÓRIA NO RENDER
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("Servidor rodando na porta", PORT);
-});
+  console.log("Servidor rodando na porta " + PORT);
+});});
