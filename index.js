@@ -1,44 +1,52 @@
 const express = require("express");
 const axios = require("axios");
 const cheerio = require("cheerio");
-const cors = require("cors");
 
 const app = express();
-app.use(cors());
+const PORT = process.env.PORT || 3000;
 
+// rota raiz só pra teste rápido
 app.get("/", (req, res) => {
-  res.send("Backend online 🚀");
+  res.send("Backend rodando 🚀");
 });
 
+// rota de busca
 app.get("/buscar", async (req, res) => {
-  const query = req.query.q;
-
-  if (!query) {
-    return res.json({ erro: "Parâmetro q não informado" });
-  }
-
   try {
-    const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-    const { data } = await axios.get(url, {
+    const pergunta = req.query.q;
+
+    if (!pergunta) {
+      return res.json({
+        erro: "Parâmetro ?q é obrigatório"
+      });
+    }
+
+    const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(pergunta)}`;
+
+    const response = await axios.get(url, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
       }
     });
 
-    const $ = cheerio.load(data);
-    const resultado = $("div.BNeawe").first().text();
+    const html = response.data;
+    const $ = cheerio.load(html);
+
+    const resposta = $(".result__snippet").first().text().trim();
 
     res.json({
-      pergunta: query,
-      resposta: resultado || "Nenhuma resposta encontrada"
+      pergunta,
+      resposta: resposta || "Nenhuma resposta encontrada"
     });
-  } catch (erro) {
-    res.json({ erro: "Erro ao buscar no Google" });
+  } catch (error) {
+    res.json({
+      erro: "Erro ao buscar resposta",
+      detalhe: error.message
+    });
   }
 });
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("Servidor rodando na porta " + PORT);
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
