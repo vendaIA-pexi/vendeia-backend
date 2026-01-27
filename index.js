@@ -5,48 +5,54 @@ const cheerio = require("cheerio");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// rota raiz só pra teste rápido
 app.get("/", (req, res) => {
   res.send("Backend rodando 🚀");
 });
 
-// rota de busca
 app.get("/buscar", async (req, res) => {
   try {
     const pergunta = req.query.q;
 
     if (!pergunta) {
-      return res.json({
-        erro: "Parâmetro ?q é obrigatório"
-      });
+      return res.json({ erro: "Use ?q=pergunta" });
     }
 
     const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(pergunta)}`;
 
-    const response = await axios.get(url, {
+    const { data } = await axios.get(url, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
       }
     });
 
-    const html = response.data;
-    const $ = cheerio.load(html);
+    const $ = cheerio.load(data);
 
-    const resposta = $(".result__snippet").first().text().trim();
+    // tenta pegar snippet
+    let resposta = $(".result__snippet").first().text().trim();
+
+    // fallback: tenta outro formato
+    if (!resposta) {
+      resposta = $(".result__body").first().text().trim();
+    }
+
+    // fallback final
+    if (!resposta) {
+      resposta = $(".results").text().slice(0, 300).trim();
+    }
 
     res.json({
       pergunta,
-      resposta: resposta || "Nenhuma resposta encontrada"
+      resposta: resposta || "Não foi possível obter resposta"
     });
-  } catch (error) {
+  } catch (err) {
     res.json({
-      erro: "Erro ao buscar resposta",
-      detalhe: error.message
+      erro: "Erro na busca",
+      detalhe: err.message
     });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log("Servidor rodando na porta " + PORT);
 });
