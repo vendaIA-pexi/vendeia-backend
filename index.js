@@ -5,57 +5,55 @@ const cheerio = require("cheerio");
 
 const app = express();
 app.use(cors());
-app.use(express.json());
 
+const PORT = process.env.PORT || 3000;
+
+// rota raiz
 app.get("/", (req, res) => {
   res.send("Backend online 🚀");
 });
 
+// rota de busca no Google
 app.get("/buscar", async (req, res) => {
   const pergunta = req.query.q;
 
   if (!pergunta) {
-    return res.json({ erro: "Pergunta não informada" });
+    return res.status(400).json({ erro: "Pergunta não informada" });
   }
 
   try {
-    const url = `https://www.google.com/search?q=${encodeURIComponent(pergunta)}&hl=pt-BR`;
-
-    const response = await axios.get(url, {
+    const url = `https://www.google.com/search?q=${encodeURIComponent(pergunta)}`;
+    const { data } = await axios.get(url, {
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
-      },
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+      }
     });
 
-    const $ = cheerio.load(response.data);
+    const $ = cheerio.load(data);
 
+    // pega o primeiro trecho de resposta
     let resposta = "";
-
-    // tenta pegar featured snippet
     $("div.BNeawe").each((i, el) => {
-      if ($(el).text().length > 50 && resposta === "") {
-        resposta = $(el).text();
+      const texto = $(el).text();
+      if (texto.length > 50 && !resposta) {
+        resposta = texto;
       }
     });
 
     if (!resposta) {
-      resposta = "Não encontrei uma resposta direta.";
+      resposta = "Não encontrei uma resposta clara.";
     }
 
     res.json({
       pergunta,
-      resposta,
+      resposta
     });
   } catch (erro) {
-    res.json({
-      erro: "Erro ao buscar no Google",
-      detalhes: erro.message,
-    });
+    res.status(500).json({ erro: "Erro ao buscar no Google" });
   }
 });
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Servidor rodando na porta " + PORT);
-});});
+});
