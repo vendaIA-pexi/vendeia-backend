@@ -1,189 +1,187 @@
-const express = require("express");
-const cors = require("cors");
+// ================================
+// VENDAIA — INDEX.JS ULTIMATE
+// Máquina automática de conversão
+// ================================
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+// ----------------
+// CONFIG
+// ----------------
+const API_CHAT = "https://vendeia-backend.onrender.com/chat";
+const API_IMAGE = "https://vendeia-backend.onrender.com/imagem";
 
-app.use(cors());
-app.use(express.json());
-
-/* =========================
-   MEMÓRIA SIMPLES (GLOBAL)
-========================= */
-let memoria = {
-  ultimaFrase: null,
-  aguardandoTextoImagem: false,
-  aguardandoConfirmacaoImagem: false
+const MAX_FREE_MESSAGES = 5;
+const STORAGE = {
+  MEMORIA: "vendaia_memoria",
+  USER: "vendaia_user",
+  STATS: "vendaia_stats",
+  SESSION: "vendaia_session"
 };
 
-/* =========================
-   HELPERS
-========================= */
-const palavrasConfirmacao = ["sim", "ok", "pode", "gera", "gerar", "manda"];
-
-function resetarFluxo() {
-  memoria.aguardandoTextoImagem = false;
-  memoria.aguardandoConfirmacaoImagem = false;
-}
-
-/* =========================
-   ROTA INDEX
-========================= */
-app.get("/", (req, res) => {
-  res.json({
-    app: "VendeIA",
-    status: "online",
-    modelo: "GPT-5.2",
-    estilo: "ChatGPT-like"
-  });
+// ----------------
+// INIT
+// ----------------
+document.addEventListener("DOMContentLoaded", () => {
+  initUsuario();
+  initSessao();
+  mensagemBoasVindas();
 });
 
-/* =========================
-   ROTA CHAT
-========================= */
-app.post("/chat", (req, res) => {
-  try {
-    const mensagemRaw = req.body?.mensagem;
-
-    if (typeof mensagemRaw !== "string") {
-      return responderTexto(res, "Pode escrever o que você quiser 🙂");
-    }
-
-    const mensagem = mensagemRaw.trim();
-    if (!mensagem) {
-      return responderTexto(res, "Pode escrever o que você quiser 🙂");
-    }
-
-    const texto = mensagem.toLowerCase();
-
-    /* =========================
-       CONFIRMAÇÃO DE IMAGEM
-    ========================= */
-    const confirmouImagem =
-      memoria.aguardandoConfirmacaoImagem &&
-      (
-        mensagem === "__CONFIRMAR_IMAGEM__" ||
-        palavrasConfirmacao.some(p =>
-          new RegExp(`\\b${p}\\b`).test(texto)
-        )
-      );
-
-    if (confirmouImagem) {
-      if (!memoria.ultimaFrase) {
-        resetarFluxo();
-        memoria.aguardandoTextoImagem = true;
-        return responderTexto(
-          res,
-          "Beleza 😄 Qual texto você quer usar na arte?"
-        );
-      }
-
-      const frase = memoria.ultimaFrase;
-      memoria.ultimaFrase = null;
-      resetarFluxo();
-
-      return responderImagem(res, frase);
-    }
-
-    /* =========================
-       TEXTO PARA IMAGEM
-    ========================= */
-    if (memoria.aguardandoTextoImagem) {
-      memoria.ultimaFrase = mensagem;
-      memoria.aguardandoTextoImagem = false;
-      memoria.aguardandoConfirmacaoImagem = true;
-
-      return responderTexto(
-        res,
-        `Perfeito 👌 Vou criar uma arte usando este texto:\n\n"${mensagem}"\n\nQuer que eu gere agora?`
-      );
-    }
-
-    /* =========================
-       PEDIDO DE IMAGEM
-    ========================= */
-    if (/\b(imagem|gerar imagem|criar imagem)\b/.test(texto)) {
-      resetarFluxo();
-      memoria.aguardandoTextoImagem = true;
-      return responderTexto(
-        res,
-        "Show 😄 Qual texto você quer usar na arte?"
-      );
-    }
-
-    /* =========================
-       CRIAÇÃO DE TEXTO
-    ========================= */
-    if (/\b(frase|texto|mensagem|motivação|anúncio|legenda)\b/.test(texto)) {
-      const frase = gerarFrase();
-      memoria.ultimaFrase = frase;
-      resetarFluxo();
-
-      return responderTexto(
-        res,
-        `🔥 Criei isso pra você:\n\n"${frase}"\n\nQuer transformar em arte, anúncio ou legenda?`
-      );
-    }
-
-    /* =========================
-       CONVERSA NORMAL
-    ========================= */
-    resetarFluxo();
-    return responderTexto(res, gerarRespostaHumana());
-
-  } catch (err) {
-    console.error("Erro no /chat:", err);
-    resetarFluxo();
-    return responderTexto(res, "❌ Algo deu errado. Tenta de novo.");
+// ----------------
+// USUÁRIO
+// ----------------
+function initUsuario() {
+  if (!localStorage.getItem(STORAGE.USER)) {
+    localStorage.setItem(STORAGE.USER, JSON.stringify({
+      plano: "free",
+      mensagens: 0,
+      perfil: "desconhecido",
+      emocao: "neutro",
+      ultimoAcesso: Date.now()
+    }));
   }
-});
-
-/* =========================
-   FUNÇÕES AUXILIARES
-========================= */
-
-function responderTexto(res, texto) {
-  return res.json({
-    tipo: "texto",
-    resposta: texto
-  });
 }
 
-function responderImagem(res, texto) {
-  return res.json({
-    tipo: "imagem",
-    texto, // 👈 texto limpo para usar no front se quiser
-    imagem: `https://image.pollinations.ai/prompt/${encodeURIComponent(
-      "arte moderna, fundo bonito, abstrato, iluminação profissional, sem texto, alta qualidade"
-    )}`
-  });
+function getUser() {
+  return JSON.parse(localStorage.getItem(STORAGE.USER));
 }
 
-function gerarFrase() {
-  const frases = [
-    "O sucesso não é sorte, é consistência aplicada todos os dias.",
-    "Quem age enquanto os outros duvidam chega mais longe.",
-    "Disciplina é fazer mesmo quando a motivação não aparece.",
-    "Resultados vêm de quem executa, não de quem só planeja.",
-    "Pequenas ações diárias criam grandes resultados."
-  ];
-  return frases[Math.floor(Math.random() * frases.length)];
+function setUser(data) {
+  localStorage.setItem(STORAGE.USER, JSON.stringify(data));
 }
 
-function gerarRespostaHumana() {
-  const respostas = [
-    "Boa pergunta 👀 Quer que eu explique de forma simples ou direta?",
-    "Posso te ajudar com isso sim. Quer um exemplo prático?",
-    "Isso depende do objetivo. Me conta um pouco mais.",
-    "Interessante isso 🤔 Você quer algo mais técnico ou mais simples?",
-    "Se quiser, posso transformar isso em texto, imagem ou explicação."
-  ];
-  return respostas[Math.floor(Math.random() * respostas.length)];
+// ----------------
+// SESSÃO
+// ----------------
+function initSessao() {
+  localStorage.setItem(STORAGE.SESSION, JSON.stringify({
+    inicio: Date.now(),
+    mensagens: []
+  }));
 }
 
-/* =========================
-   START
-========================= */
-app.listen(PORT, () => {
-  console.log(`🚀 VendeIA rodando na porta ${PORT} • Modelo GPT-5.2`);
-});
+// ----------------
+// MEMÓRIA
+// ----------------
+function getMemoria() {
+  return JSON.parse(localStorage.getItem(STORAGE.MEMORIA)) || [];
+}
+
+function salvarMemoria(tipo, texto) {
+  const m = getMemoria();
+  m.push({ tipo, texto, data: Date.now() });
+  localStorage.setItem(STORAGE.MEMORIA, JSON.stringify(m.slice(-100)));
+}
+
+// ----------------
+// UX
+// ----------------
+function typingFake() {
+  return new Promise(r => setTimeout(r, 600 + Math.random() * 900));
+}
+
+// ----------------
+// PERFIL PSICOLÓGICO
+// ----------------
+function detectarPerfil(texto) {
+  if (/preço|valor|comprar|pagar/i.test(texto)) return "comprador";
+  if (/como funciona|detalhe|tecnico/i.test(texto)) return "tecnico";
+  if (/rápido|agora|urgente/i.test(texto)) return "apressado";
+  if (/talvez|não sei|pensar/i.test(texto)) return "indeciso";
+  return "curioso";
+}
+
+// ----------------
+// EMOÇÃO
+// ----------------
+function detectarEmocao(texto) {
+  if (/raiva|ódio|droga/i.test(texto)) return "frustrado";
+  if (/top|perfeito|amei/i.test(texto)) return "empolgado";
+  return "neutro";
+}
+
+// ----------------
+// GATILHOS
+// ----------------
+function gatilho(perfil) {
+  const g = {
+    comprador: "🔥 Últimas vagas hoje.",
+    indeciso: "🤝 Posso te ajudar a decidir agora.",
+    curioso: "👀 Pouca gente sabe disso.",
+    tecnico: "🧠 Vou direto ao ponto.",
+    apressado: "⏳ Vamos resolver em 1 minuto."
+  };
+  return g[perfil] || "";
+}
+
+// ----------------
+// PAYWALL
+// ----------------
+function verificarLimite() {
+  const u = getUser();
+  if (u.plano === "premium") return true;
+
+  if (u.mensagens >= MAX_FREE_MESSAGES) {
+    responderBot("🚫 Você atingiu o limite grátis. Libere o Premium para continuar.");
+    responderBot("💳 Premium: imagens ilimitadas, memória longa e respostas avançadas.");
+    return false;
+  }
+  return true;
+}
+
+// ----------------
+// AFILIADO
+// ----------------
+function afiliadoSugestao(perfil) {
+  if (perfil === "comprador") {
+    return "💸 Recomendo este produto agora 👉 https://seulink.com";
+  }
+  return "";
+}
+
+// ----------------
+// IA VENDEDORA
+// ----------------
+async function processarMensagem(texto) {
+  const u = getUser();
+  if (!verificarLimite()) return;
+
+  u.mensagens++;
+  u.perfil = detectarPerfil(texto);
+  u.emocao = detectarEmocao(texto);
+  u.ultimoAcesso = Date.now();
+  setUser(u);
+
+  salvarMemoria("user", texto);
+
+  await typingFake();
+
+  let resposta = "";
+
+  // IA fake local (fallback)
+  resposta += gatilho(u.perfil) + "\n";
+  resposta += "Entendi o que você quer.\n";
+
+  if (u.perfil === "comprador") {
+    resposta += "👉 Posso te entregar a melhor opção agora.\n";
+  }
+
+  resposta += afiliadoSugestao(u.perfil);
+
+  salvarMemoria("bot", resposta);
+  responderBot(resposta);
+}
+
+// ----------------
+// OUTPUT (exemplo)
+// ----------------
+function responderBot(texto) {
+  console.log("BOT:", texto);
+}
+
+// ----------------
+// BOAS-VINDAS
+// ----------------
+function mensagemBoasVindas() {
+  responderBot("👋 Bem-vindo ao VendaIA.");
+  responderBot("Sou uma IA criada para vender, otimizar e te dar vantagem.");
+}
