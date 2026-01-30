@@ -9,10 +9,11 @@ app.use(express.json());
 
 app.post("/chat", async (req, res) => {
   try {
-    const { message } = req.body;
+    // ✅ PADRÃO: texto
+    const { texto } = req.body;
 
-    if (!message) {
-      return res.json({ reply: "Mensagem vazia 😅" });
+    if (!texto) {
+      return res.json({ resposta: "Mensagem vazia 😅" });
     }
 
     const response = await fetch(
@@ -26,8 +27,14 @@ app.post("/chat", async (req, res) => {
         body: JSON.stringify({
           model: "gpt-4o-mini",
           messages: [
-            { role: "system", content: "Você é o VendeIA, um assistente inteligente de vendas." },
-            { role: "user", content: message }
+            {
+              role: "system",
+              content: "Você é o VendeIA, um assistente inteligente de vendas, claro e direto."
+            },
+            {
+              role: "user",
+              content: texto
+            }
           ]
         })
       }
@@ -35,15 +42,20 @@ app.post("/chat", async (req, res) => {
 
     const data = await response.json();
 
-    return res.json({
-      reply: data?.choices?.[0]?.message?.content || "Sem resposta 😕"
-    });
+    // 🛡️ Proteção total
+    const resposta =
+      data?.choices?.[0]?.message?.content ||
+      "Não consegui responder agora 😕";
+
+    return res.json({ resposta });
 
   } catch (err) {
-    console.error(err);
-    return res.json({ reply: "Erro no servidor 😢" });
+    console.error("❌ Erro no /chat:", err);
+    return res.json({ resposta: "Erro no servidor 😢" });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("🔥 VendeIA ONLINE"));
+app.listen(PORT, () => {
+  console.log("🔥 VendeIA ONLINE na porta", PORT);
+});
