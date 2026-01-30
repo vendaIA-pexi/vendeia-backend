@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import fetch from "node-fetch";
 
 const app = express();
 app.use(cors());
@@ -35,8 +34,10 @@ app.post("/chat", async (req, res) => {
     });
 
   } catch (err) {
+    console.error(err);
     res.json({ resposta: "Erro no servidor 😢" });
   }
 });
 
-app.listen(3000, () => console.log("VendeIA ON 🔥"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("VendeIA ONLINE 🔥"));
