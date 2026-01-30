@@ -1,54 +1,42 @@
-const express = require("express");
-const cors = require("cors");
+import express from "express";
+import cors from "cors";
+import fetch from "node-fetch";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-/* ===== MIDDLEWARE ===== */
 app.use(cors());
 app.use(express.json());
 
-/* ===== ROTA TESTE ===== */
-app.get("/", (req, res) => {
-  res.send("🚀 Backend VendeIA online");
+app.post("/chat", async (req, res) => {
+  try {
+    const { mensagem } = req.body;
+
+    const response = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENAI_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: "Você é o VendeIA." },
+            { role: "user", content: mensagem }
+          ]
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    res.json({
+      resposta: data.choices[0].message.content
+    });
+
+  } catch (err) {
+    res.json({ resposta: "Erro no servidor 😢" });
+  }
 });
 
-/* ===== CHAT ===== */
-app.post("/chat", (req, res) => {
-  const mensagem = req.body.mensagem;
-
-  if (!mensagem) {
-    return res.json({
-      tipo: "texto",
-      resposta: "⚠️ Nenhuma mensagem recebida."
-    });
-  }
-
-  const texto = mensagem.toLowerCase();
-
-  // respostas simples (base)
-  if (texto.includes("oi") || texto.includes("olá")) {
-    return res.json({
-      tipo: "texto",
-      resposta: "👋 Olá! Em que posso te ajudar?"
-    });
-  }
-
-  if (texto.includes("imagem")) {
-    return res.json({
-      tipo: "imagem",
-      imagem: "https://picsum.photos/512/512"
-    });
-  }
-
-  // resposta padrão
-  return res.json({
-    tipo: "texto",
-    resposta: `🤖 Você disse: "${mensagem}"`
-  });
-});
-
-/* ===== START ===== */
-app.listen(PORT, () => {
-  console.log("✅ Servidor rodando na porta", PORT);
-});
+app.listen(3000, () => console.log("VendeIA ON 🔥"));
